@@ -29,11 +29,6 @@
     <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-annotations:2.7.0" level="project" />
     <orderEntry type="library" name="Maven: io.vertx:vertx-web:3.4.1" level="project" />
     <orderEntry type="library" name="Maven: io.vertx:vertx-auth-common:3.4.1" level="project" />
-    <orderEntry type="library" name="Maven: ch.qos.logback:logback-classic:1.2.2" level="project" />
-    <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.25" level="project" />
-    <orderEntry type="library" name="Maven: ch.qos.logback:logback-core:1.2.2" level="project" />
-    <orderEntry type="library" name="Maven: io.dropwizard.metrics:metrics-core:3.2.1" level="project" />
-    <orderEntry type="library" name="Maven: com.beust:jcommander:1.60" level="project" />
     <orderEntry type="library" name="Maven: org.mapdb:mapdb:3.0.4" level="project" />
     <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib:1.0.7" level="project" />
     <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-runtime:1.0.7" level="project" />

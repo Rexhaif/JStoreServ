@@ -12,20 +12,15 @@ import xyz.rexhaif.jstore.Storage;
 /**
  * Created by Rexhaif on 5/15/2017.
  */
-public class MapdbMemoryStorage implements Storage {
+public class MapdbStorage implements Storage {
 
     private DB database;
     private BTreeMap<byte[], byte[]> storage;
     private Vertx vertx;
 
-    public MapdbMemoryStorage(Vertx vertx) {
+    public MapdbStorage(Vertx vertx, DB database) {
 
-        database = DBMaker
-                .memoryDB()
-                .cleanerHackEnable()
-                .closeOnJvmShutdown()
-                .executorEnable()
-                .make();
+        this.database = database;
         storage = database.treeMap(
                 "storage",
                 Serializer.BYTE_ARRAY,
@@ -49,7 +44,13 @@ public class MapdbMemoryStorage implements Storage {
     @Override
     public void read(byte[] key, Handler<AsyncResult<byte[]>> handler) {
         vertx.executeBlocking(
-                future -> future.complete(storage.get(key)),
+                future -> existKey(key, result -> {
+                    if (result.result()) {
+                        future.complete(storage.get(key));
+                    } else {
+                        future.fail("Not Found");
+                    }
+                }),
                 handler
         );
     }

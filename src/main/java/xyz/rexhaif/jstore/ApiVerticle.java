@@ -1,6 +1,5 @@
 package xyz.rexhaif.jstore;
 
-import com.sun.java.swing.plaf.windows.WindowsTreeUI;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
@@ -10,15 +9,10 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.LoggerHandler;
-import xyz.rexhaif.jstore.impl.MapdbMemoryStorage;
+import xyz.rexhaif.jstore.impl.MapdbStorage;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 public class ApiVerticle extends AbstractVerticle {
 
@@ -26,14 +20,14 @@ public class ApiVerticle extends AbstractVerticle {
 
     private HttpServer mServer;
     private Router mRouter;
-    private Map<byte[], byte[]> mStorage;
+    private Storage mStorage;
 
     @Override
     public void start(Future<Void> startFuture) throws Exception {
 
         JsonObject conf = context.config();
 
-        mStorage = new ConcurrentHashMap<>();
+        mStorage = new MapdbStorage(vertx, Consts.dbConfig.make());
 
         mServer = vertx.createHttpServer(
                 new HttpServerOptions()
@@ -46,31 +40,85 @@ public class ApiVerticle extends AbstractVerticle {
         mRouter.route().handler(BodyHandler.create());
         mRouter.route().handler(LoggerHandler.create());
 
-        mRouter.post("/:key").handler(
+        mRouter.post("/:key/").handler(
                 rtx -> {
-                    String key = rtx.request().getParam("key");
+                    byte[] key = rtx.request().getParam("key").getBytes(UTF);
                     byte[] data = rtx.getBody().getBytes();
-                    rtx.response().setChunked(true).end(key);
+
+                    mStorage.create(key, data, result -> {
+                        if(result.succeeded()) {
+                            rtx.response().setStatusCode(201).end();
+                        } else {
+                            rtx.response().setStatusCode(501).end();
+                        }
+                    });
                 }
         );
         mRouter.get("/:key/").handler(
                 rtx -> {
-                    String key = rtx.request().getParam("key");
+                    byte[] key = rtx.request().getParam("key").getBytes(UTF);
 
+                    mStorage.read(key, result -> {
+                        if (result.succeeded()) {
+                            rtx.response()
+                                    .setChunked(true)
+                                    .setStatusCode(200)
+                                    .write(
+                                            Buffer.buffer(
+                                                    result.result()
+                                            )
+                                    )
+                                    .end();
+                        } else {
+                            mStorage.existKey(key, existence -> { //TODO: Handle incorrect situations
+                                if (!existence.result()) {
+                                    rtx.response().setStatusCode(404).end();
+                                } else {
+                                    rtx.response().setStatusCode(501).end();
+                                }
+                            });
+                        }
+                    });
                 }
         );
         mRouter.put("/:key/").handler(
                 rtx -> {
-                    String key = rtx.request().getParam("key");
+                    byte[] key = rtx.request().getParam("key").getBytes(UTF);
                     byte[] data = rtx.getBody().getBytes();
 
-
+                    mStorage.update(key, data, result -> {
+                        if(result.succeeded()) {
+                            rtx.response().setStatusCode(201).end();
+                        } else {
+                            rtx.response().setStatusCode(501).end();
+                        }
+                    });
                 }
         );
         mRouter.delete("/:key/").handler(
                 rtx -> {
-                    String key = rtx.request().getParam("key");
+                    byte[] key = rtx.request().getParam("key").getBytes(UTF);
 
+                    mStorage.delete(key, result -> {
+                        if (result.succeeded()) {
+                            rtx.response().setStatusCode(200).end();
+                        } else {
+                            rtx.response().setStatusCode(501).end();
+                        }
+                    });
+                }
+        );
+        mRouter.head("/:key/").handler(
+                rtx -> {
+                    byte[] key = rtx.request().getParam("key").getBytes(UTF);
+
+                    mStorage.existKey(key, result -> {
+                        if (result.result()) {
+                            rtx.response().setStatusCode(200).end();
+                        } else {
+                            rtx.response().setStatusCode(404).end();
+                        }
+                    });
                 }
         );
 
@@ -81,6 +129,12 @@ public class ApiVerticle extends AbstractVerticle {
 
     @Override
     public void stop(Future<Void> stopFuture) throws Exception {
-
+        mServer.close(result -> {
+            if (result.succeeded()) {
+                mRouter.clear();
+                mStorage.close();
+                stopFuture.complete();
+            }
+        });
     }
 }
